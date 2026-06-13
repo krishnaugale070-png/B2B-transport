@@ -1,0 +1,169 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- GLOBAL SAFETY NET ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL REUSABLE PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- ENTITY SCHEMA VALIDATIONS (Anti-Update-Gaps) ---
+
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 128
+        && data.role is string && (data.role == 'company' || data.role == 'owner' || data.role == 'admin')
+        && data.phone is string && data.phone.size() <= 30
+        && (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 120))
+        && (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 30));
+    }
+
+    function isValidVehicle(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.ownerId is string && data.ownerId.size() <= 128
+        && data.ownerName is string && data.ownerName.size() <= 100
+        && data.ownerPhone is string && data.ownerPhone.size() <= 30
+        && data.ownerWhatsapp is string && data.ownerWhatsapp.size() <= 30
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.type is string && (data.type == 'Semi-Trailer' || data.type == 'Flatbed' || data.type == 'Refrigerated/Reefer' || data.type == 'Box Truck' || data.type == 'Container Carrier' || data.type == 'Car Carrier')
+        && data.capacityTons is number && data.capacityTons >= 0 && data.capacityTons <= 1000
+        && data.basePricePerKm is number && data.basePricePerKm >= 0 && data.basePricePerKm <= 10000
+        && data.minPrice is number && data.minPrice >= 0 && data.minPrice <= 100000
+        && data.location is string && data.location.size() <= 120
+        && data.coordinates is map
+        && data.coordinates.lat is number && data.coordinates.lat >= -90.0 && data.coordinates.lat <= 90.0
+        && data.coordinates.lng is number && data.coordinates.lng >= -180.0 && data.coordinates.lng <= 180.0
+        && data.photoUrl is string && data.photoUrl.size() <= 2048
+        && data.rating is number && data.rating >= 0.0 && data.rating <= 5.0
+        && data.reviewsCount is number && data.reviewsCount >= 0
+        && data.availabilityDates is list
+        && data.isAvailable is bool
+        && data.licensePlate is string && data.licensePlate.size() <= 20;
+    }
+
+    function isValidBooking(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.vehicleId is string && data.vehicleId.size() <= 128
+        && data.vehicleName is string && data.vehicleName.size() <= 100
+        && data.vehicleType is string
+        && data.vehiclePhoto is string && data.vehiclePhoto.size() <= 2048
+        && data.ownerId is string && data.ownerId.size() <= 128
+        && data.ownerName is string && data.ownerName.size() <= 100
+        && data.ownerPhone is string && data.ownerPhone.size() <= 30
+        && data.companyId is string && data.companyId.size() <= 128
+        && data.companyName is string && data.companyName.size() <= 100
+        && data.pickupLocation is string && data.pickupLocation.size() <= 120
+        && data.dropLocation is string && data.dropLocation.size() <= 120
+        && data.pickupCoords is map
+        && data.pickupCoords.lat is number && data.pickupCoords.lat >= -90.0 && data.pickupCoords.lat <= 90.0
+        && data.pickupCoords.lng is number && data.pickupCoords.lng >= -180.0 && data.pickupCoords.lng <= 180.0
+        && data.dropCoords is map
+        && data.dropCoords.lat is number && data.dropCoords.lat >= -90.0 && data.dropCoords.lat <= 90.0
+        && data.dropCoords.lng is number && data.dropCoords.lng >= -180.0 && data.dropCoords.lng <= 180.0
+        && data.distanceKm is number && data.distanceKm >= 0
+        && data.bookingDate is string && data.bookingDate.size() <= 20
+        && data.totalFreightCost is number && data.totalFreightCost >= 0
+        && data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'declined' || data.status == 'completed')
+        && data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    function isValidReview(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.vehicleId is string && data.vehicleId.size() <= 128
+        && data.companyName is string && data.companyName.size() <= 100
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() <= 2000
+        && data.date is string && data.date.size() <= 20;
+    }
+
+    // --- COLLECTION RULES MATCHES ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isValidId(userId) && isOwner(userId) && isValidUser(incoming());
+      allow update: if isValidId(userId) && isOwner(userId) && isValidUser(incoming())
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'companyName', 'whatsappNumber']));
+    }
+
+    match /vehicles/{vehicleId} {
+      allow get, list: if isSignedIn();
+      allow create: if isValidId(vehicleId) && isOwner(incoming().ownerId) && isValidVehicle(incoming());
+      // Owner can update, or company updating rating through review (we can loosen affectedKeys to allow rating syncing)
+      allow update: if isValidId(vehicleId) && (
+        (isOwner(existing().ownerId) && isValidVehicle(incoming()) && incoming().ownerId == existing().ownerId)
+        ||
+        // Allow automatic review calculation modifications by users
+        (isSignedIn() && isValidVehicle(incoming()) && incoming().ownerId == existing().ownerId && incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'reviewsCount']))
+      );
+      allow delete: if isValidId(vehicleId) && isOwner(existing().ownerId);
+    }
+
+    match /bookings/{bookingId} {
+      // Must not delegate list security to client
+      allow get, list: if isSignedIn() && (resource.data.companyId == request.auth.uid || resource.data.ownerId == request.auth.uid);
+      
+      // Shipper users can create bookings
+      allow create: if isValidId(bookingId) && isOwner(incoming().companyId) && incoming().status == 'pending' && isValidBooking(incoming());
+      
+      // Tiered state change restrictions
+      allow update: if isValidId(bookingId) && (
+        // Terminal state check - cannot modify completed or declined bookings
+        existing().status != 'completed' && existing().status != 'declined' && (
+          // Action: Accept or Decline booking (Must be the carrier owner)
+          (isOwner(existing().ownerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && (incoming().status == 'approved' || incoming().status == 'declined' || incoming().status == 'completed'))
+          ||
+          // Action: Close/complete booking (Must be the shipper who initiated)
+          (isOwner(existing().companyId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'completed')
+        )
+      );
+    }
+
+    match /reviews/{reviewId} {
+      allow get, list: if isSignedIn();
+      // Shippers can write reviews
+      allow create: if isValidId(reviewId) && isSignedIn() && isValidReview(incoming());
+      // Reviews are immutable
+      allow update, delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Allow creation of notification targeting matching user
+      allow create: if isValidId(notificationId) && isSignedIn()
+        && incoming().userId != null
+        && incoming().id == notificationId
+        && incoming().userId is string
+        && incoming().title is string
+        && incoming().message is string
+        && incoming().createdAt is string
+        && incoming().read == false;
+      // Recipient can dismiss or mark as read
+      allow update: if isValidId(notificationId) && isOwner(existing().userId)
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['read']));
+      allow delete: if isValidId(notificationId) && isOwner(existing().userId);
+    }
+  }
+}

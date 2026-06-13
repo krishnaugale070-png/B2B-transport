@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["company", "owner", "admin"] },
+        "phone": { "type": "string" },
+        "companyName": { "type": "string" },
+        "whatsappNumber": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role", "phone"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Carrier vehicle registry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerPhone": { "type": "string" },
+        "ownerWhatsapp": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Semi-Trailer", "Flatbed", "Refrigerated/Reefer", "Box Truck", "Container Carrier", "Car Carrier"] },
+        "capacityTons": { "type": "number" },
+        "basePricePerKm": { "type": "number" },
+        "minPrice": { "type": "number" },
+        "location": { "type": "string" },
+        "coordinates": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          },
+          "required": ["lat", "lng"]
+        },
+        "photoUrl": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "availabilityDates": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "isAvailable": { "type": "boolean" },
+        "licensePlate": { "type": "string" }
+      },
+      "required": ["id", "ownerId", "ownerName", "ownerPhone", "ownerWhatsapp", "name", "type", "capacityTons", "basePricePerKm", "minPrice", "location", "coordinates", "photoUrl", "rating", "reviewsCount", "availabilityDates", "isAvailable", "licensePlate"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Logistics booking transaction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "vehicleName": { "type": "string" },
+        "vehicleType": { "type": "string", "enum": ["Semi-Trailer", "Flatbed", "Refrigerated/Reefer", "Box Truck", "Container Carrier", "Car Carrier"] },
+        "vehiclePhoto": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerPhone": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "pickupLocation": { "type": "string" },
+        "dropLocation": { "type": "string" },
+        "pickupCoords": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          },
+          "required": ["lat", "lng"]
+        },
+        "dropCoords": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          },
+          "required": ["lat", "lng"]
+        },
+        "distanceKm": { "type": "number" },
+        "bookingDate": { "type": "string" },
+        "totalFreightCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "declined", "completed"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "vehicleId", "vehicleName", "vehicleType", "vehiclePhoto", "ownerId", "ownerName", "ownerPhone", "companyId", "companyName", "pickupLocation", "dropLocation", "pickupCoords", "dropCoords", "distanceKm", "bookingDate", "totalFreightCost", "status", "createdAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Vehicle transport quality reviews",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "vehicleId", "companyName", "rating", "comment", "date"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System event notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "read": { "type": "boolean" },
+        "type": { "type": "string", "enum": ["booking_request", "booking_status", "general", "review"] }
+      },
+      "required": ["id", "userId", "title", "message", "createdAt", "read", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of shippers, carriers, and administrators"
+    },
+    "/vehicles/{vehicleId}": {
+      "schema": "Vehicle",
+      "description": "Carrier vehicle listings"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Bookings created by company shippers"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Verified reviews for cargo runs"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Real-time alerts and inbox events"
+    }
+  }
+}

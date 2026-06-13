@@ -1,0 +1,6 @@
+{
+  "name": "Transport Connect",
+  "description": "A modern transportation marketplace connecting companies directly with vehicle owners. Search and filter vehicles, track live mock GPS locations, select routes, calculate freight costs, book vehicles, and message owners directly.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
